@@ -140,8 +140,9 @@ async def enroll_student(
     # Create student login account
     # Default password = student_id (admin should tell student to change it)
     conn.execute("""
-        INSERT OR IGNORE INTO users (username, password, role, student_id)
+        INSERT INTO users (username, password, role, student_id)
         VALUES (?, ?, 'student', ?)
+        ON CONFLICT (username) DO NOTHING
     """, (student_id, hash_password(student_id), student_id))
 
     conn.commit()

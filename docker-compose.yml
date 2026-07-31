@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: attendx
+      POSTGRES_PASSWORD: attendx_dev_password
+      POSTGRES_DB: attendx
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U attendx"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://attendx:attendx_dev_password@db:5432/attendx
+      SECRET_KEY: ${SECRET_KEY:-change_this_in_production}
+    volumes:
+      - ./backend/storage:/app/storage
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:

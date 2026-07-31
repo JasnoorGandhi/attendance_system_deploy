@@ -1,38 +1,62 @@
-import sqlite3
 import os
-from datetime import datetime
+import psycopg2
+import psycopg2.extras
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "attendance.db")
+# ── Configuration ─────────────────────────────────────────────────────────────
+# Reads DATABASE_URL from environment (set by docker-compose or Render/Railway).
+# Local fallback assumes a local Postgres instance for dev without Docker.
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://attendx:attendx_dev_password@localhost:5432/attendx"
+)
+
+
+class _CompatConnection:
+    """
+    Thin wrapper so existing router code written against sqlite3's API
+    (conn.execute("... ? ...", params).fetchone()/.fetchall(),
+    conn.commit(), conn.close()) keeps working unchanged against
+    psycopg2/Postgres. Translates '?' placeholders to '%s' and routes
+    execute() through a cursor under the hood.
+    """
+    def __init__(self, pg_conn):
+        self._conn   = pg_conn
+        self._cursor = pg_conn.cursor()
+
+    def execute(self, query, params=()):
+        query = query.replace("?", "%s")
+        self._cursor.execute(query, params)
+        return self._cursor
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._cursor.close()
+        self._conn.close()
 
 
 def get_connection():
     """
-    Returns a SQLite connection with row_factory set so
-    every row comes back as a dict instead of a tuple.
+    Returns a connection wrapper exposing the same conn.execute(...)
+    interface the routers already use, backed by psycopg2/Postgres.
+    Row results behave like dicts (row["column_name"]) via RealDictCursor.
     """
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    pg_conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+    return _CompatConnection(pg_conn)
 
 
 def init_db():
     """
     Creates all tables if they don't already exist.
     Call this once on startup from main.py.
-
-    Tables:
-        students   — one row per enrolled student
-        users      — login credentials (admin + student accounts)
-        attendance — one row per student per session
     """
-    conn = get_connection()
+    conn   = get_connection()
     cursor = conn.cursor()
 
-    # ── students ──────────────────────────────────────────────────
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS students (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             student_id  TEXT    NOT NULL UNIQUE,
             name        TEXT    NOT NULL,
             branch      TEXT    NOT NULL,
@@ -43,12 +67,9 @@ def init_db():
         )
     """)
 
-    # ── users ─────────────────────────────────────────────────────
-    # role is either 'admin' or 'student'
-    # student_id is NULL for admin accounts
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             username    TEXT    NOT NULL UNIQUE,
             password    TEXT    NOT NULL,
             role        TEXT    NOT NULL DEFAULT 'student',
@@ -58,12 +79,9 @@ def init_db():
         )
     """)
 
-    # ── attendance ────────────────────────────────────────────────
-    # status is either 'Present' or 'Absent'
-    # confidence stores the dlib euclidean distance (lower = better)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS attendance (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             student_id  TEXT    NOT NULL,
             session     TEXT    NOT NULL,
             status      TEXT    NOT NULL DEFAULT 'Absent',
@@ -75,15 +93,16 @@ def init_db():
         )
     """)
 
-    # ── seed default admin account ────────────────────────────────
-    # password is 'admin123' hashed with bcrypt
-    # frontend should prompt admin to change this on first login
+    # Seed default admin — password 'admin123' hashed with bcrypt.
+    # ON CONFLICT DO NOTHING is Postgres's equivalent of sqlite's INSERT OR IGNORE.
     from auth import hash_password
     cursor.execute("""
-        INSERT OR IGNORE INTO users (username, password, role, student_id)
-        VALUES (?, ?, 'admin', NULL)
+        INSERT INTO users (username, password, role, student_id)
+        VALUES (%s, %s, 'admin', NULL)
+        ON CONFLICT (username) DO NOTHING
     """, ("admin", hash_password("admin123")))
 
     conn.commit()
+    cursor.close()
     conn.close()
-    print("Database initialised ✓")
+    print("Database initialised (PostgreSQL) ✓")

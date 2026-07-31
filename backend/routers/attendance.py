@@ -68,8 +68,6 @@ async def upload_group_photo(
     contents = await photo.read()
     np_arr   = np.frombuffer(contents, np.uint8)
     img_bgr  = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-    print(f"DEBUG image shape: {img_bgr.shape}, dtype: {img_bgr.dtype}")
-
 
     if img_bgr is None:
         conn.close()
@@ -104,9 +102,13 @@ async def upload_group_photo(
         conf   = recognised_ids.get(sid)
 
         conn.execute("""
-            INSERT OR REPLACE INTO attendance
+            INSERT INTO attendance
                 (student_id, session, status, confidence, marked_at)
             VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (student_id, session)
+            DO UPDATE SET status = EXCLUDED.status,
+                          confidence = EXCLUDED.confidence,
+                          marked_at = EXCLUDED.marked_at
         """, (sid, session_label, status, conf, marked_at))
 
         if status == "Present":

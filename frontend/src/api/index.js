@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:8000'
+const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 
 // ── Token helpers ─────────────────────────────────────────────────────────────
 export const getToken  = ()        => sessionStorage.getItem('token')

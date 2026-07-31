@@ -16,3 +16,8 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+backend/attendance.db
+backend/storage/embeddings.pkl
+backend/storage/uploads/
+backend/venv*/
