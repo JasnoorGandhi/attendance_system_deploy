@@ -1,6 +1,6 @@
 fastapi==0.110.0
 uvicorn==0.29.0
-dlib==19.24.2
+dlib-bin==20.0.1
 opencv-python==4.9.0.80
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
