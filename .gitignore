@@ -1,23 +1,34 @@
-# Python
+# Virtual environments
 venv/
 venv312/
+venv310/
+venv311/
+env/
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
 
 # Node
 node_modules/
+dist/
+.vite/
 
-# Wheels
-*.whl
-
-# Env files
-.env
-
-# OS
-.DS_Store
-Thumbs.db
-
+# Runtime data — never commit
 backend/attendance.db
 backend/storage/embeddings.pkl
 backend/storage/uploads/
-backend/venv*/
+
+# Model files — large binaries, don't belong in git
+backend/storage/*.dat
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Env secrets
+.env
+.env.local
