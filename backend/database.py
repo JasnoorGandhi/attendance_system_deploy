@@ -51,10 +51,9 @@ def init_db():
     Creates all tables if they don't already exist.
     Call this once on startup from main.py.
     """
-    conn   = get_connection()
-    cursor = conn.cursor()
+    conn = get_connection()
 
-    cursor.execute("""
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS students (
             id          SERIAL PRIMARY KEY,
             student_id  TEXT    NOT NULL UNIQUE,
@@ -67,7 +66,7 @@ def init_db():
         )
     """)
 
-    cursor.execute("""
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id          SERIAL PRIMARY KEY,
             username    TEXT    NOT NULL UNIQUE,
@@ -79,7 +78,7 @@ def init_db():
         )
     """)
 
-    cursor.execute("""
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS attendance (
             id          SERIAL PRIMARY KEY,
             student_id  TEXT    NOT NULL,
@@ -96,13 +95,12 @@ def init_db():
     # Seed default admin — password 'admin123' hashed with bcrypt.
     # ON CONFLICT DO NOTHING is Postgres's equivalent of sqlite's INSERT OR IGNORE.
     from auth import hash_password
-    cursor.execute("""
+    conn.execute("""
         INSERT INTO users (username, password, role, student_id)
-        VALUES (%s, %s, 'admin', NULL)
+        VALUES (?, ?, 'admin', NULL)
         ON CONFLICT (username) DO NOTHING
     """, ("admin", hash_password("admin123")))
 
     conn.commit()
-    cursor.close()
     conn.close()
     print("Database initialised (PostgreSQL) ✓")
