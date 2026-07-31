@@ -13,9 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Fixes dlib's bundled pybind11 CMakeLists.txt requiring a CMake version
-# older than what newer CMake (4.x) will accept
 ENV CMAKE_POLICY_VERSION_MINIMUM=3.5
+# Force single-threaded compile — dlib's parallel build spikes memory
+# past Render's build limit when compiling multiple C++ files at once
+ENV CMAKE_BUILD_PARALLEL_LEVEL=1
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
