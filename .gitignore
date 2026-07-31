@@ -19,6 +19,8 @@ dist/
 backend/attendance.db
 backend/storage/embeddings.pkl
 backend/storage/uploads/
+*.whl
+*.bz2
 
 # Model files — large binaries, don't belong in git
 backend/storage/*.dat
